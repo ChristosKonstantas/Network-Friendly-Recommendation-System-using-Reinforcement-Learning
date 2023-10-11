@@ -29,10 +29,4 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
     Value Iteration and Policy Iteration to optimize recommendations, assuming all environment parameters are known.
     Q-learning and SARSA assuming parameters α and u_min are not known (but the u_ij relevance values, and q are still known).
 
-* Experiments:
-
-    Demonstrate that Policy Iteration indeed solves the problem optimally (you could try a hand-picked, toy scenario for this, not necessary randomly chosen).
-    Show the average cost achieved for different parameters (K, u_min, a, q)
-    Prove that your Q-learning algorithm correctly learns the optimal policy as well (in the partially model-free environment above). Demonstrate the convergence speed to the optimal (for different K values).
-    Try to "break" Q-learning. At what values of K does your PC or colab code start going "too slow"?
 
