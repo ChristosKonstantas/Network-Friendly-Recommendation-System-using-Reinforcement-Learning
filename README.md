@@ -30,3 +30,10 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
     Q-learning and SARSA assuming parameters α and u_min are not known (but the u_ij relevance values, and q are still known).
 
 
+
+* Instructions:
+0) Open a terminal :) .
+1) git clone https://github.com/ChristosKonstantas/Network-Friendly-Recommendation-System-using-Reinforcement-Learning.git to a folder of preference.
+2) go to venv/Scripts and execute './activate'.
+3) go to the directory where the .py files are and execute 'python main.py' or 'python3 main.py'.
+
