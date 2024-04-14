@@ -4,12 +4,6 @@ import numpy as np
 import math
 import time
 from tqdm import tqdm
-def relevant(w, U, user_now_watches):
-        if user_now_watches < k:
-            return all(U[item, user_now_watches] > u_min for item in w)
-        else:
-            raise Exception('user_now_watches=k=' + str(user_now_watches),
-                            'which is not in the catalog of contents but a terminal state')
 
 
 # This will be done for every now state s and every action
@@ -50,13 +44,19 @@ def transition_probability_matrix(state_space, action_space):
                                                                                     action_space[action_index], q, a)
     return trans_prob_array
 
-
+def relevant(w, U, user_now_watches):
+    if user_now_watches < k:
+        return all(U[item, user_now_watches] > u_min for item in w)
+    else:
+        raise Exception('user_now_watches=k=' + str(user_now_watches),
+                        'which is not in the catalog of contents but a terminal state')
+        
 def reward_function(s, s_next, cached_matrix, w_s):
     # 1-> bad, -1-> good
     if s <= k - 1:
         if s_next in w_s:
             if s_next == s:
-                return 10000000  # it should never get here but just in case we have a bug in the code and we get here we
+                return 1_000_000  # it should never get here but just in case we have a bug in the code and we get here we
                 # want to penalize it a lot
             elif s_next == k:  # if the user enters the terminal state from a content state
                 return 1
@@ -445,7 +445,6 @@ if __name__ == '__main__':
 
     start = time.time()
     # Global variables
-    print('whatsr')
     # random.seed(42)
     u_min = 0.8
     q = 0.2
