@@ -32,7 +32,7 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
 
 * Instructions:
-0) Open a terminal :) .
+0) Open terminal.
 1) git clone https://github.com/ChristosKonstantas/Network-Friendly-Recommendation-System-using-Reinforcement-Learning.git to a folder of preference.
 2) go to venv/Scripts and execute './activate'.
 3) go to the directory where the .py files are and execute 'python main.py' or 'python3 main.py'.
