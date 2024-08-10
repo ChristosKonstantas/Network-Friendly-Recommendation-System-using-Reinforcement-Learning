@@ -42,12 +42,15 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
 ** Q-Learning flowchart and state-action estimates Q**
 
-
 ![image](https://github.com/user-attachments/assets/02014b6d-a063-4f3c-ace2-0388db2040b7)
-![image](https://github.com/user-attachments/assets/f6e5ac90-1a29-4337-a6ac-1d3f92a22d8b)
 
+![image](https://github.com/user-attachments/assets/265a8487-8085-4291-920a-307e0afd36ff)
+
+---
 
 ** Benchmark (Value Iteration) **
 ![image](https://github.com/user-attachments/assets/e7409350-859f-4c89-9017-3eb074e4c259)
 
-See: [Network-Friendly Recommendation System using Reinforcement Learning report](https://github.com/ChristosKonstantas/Network-Friendly-Recommendation-System-using-Reinforcement-Learning/blob/main/NFR_Report.pdf) to study the whole implementation of [Value Iteration](https://gibberblot.github.io/rl-notes/single-agent/value-iteration.html), [Policy Iteration](https://gibberblot.github.io/rl-notes/single-agent/policy-iteration.html), [Q-learning](https://en.wikipedia.org/wiki/Q-learning) and [SARSA](https://en.wikipedia.org/wiki/State%E2%80%93action%E2%80%93reward%E2%80%93state%E2%80%93action) on the [NFR](https://arxiv.org/abs/2110.00772) problem.
+---
+
+[Network-Friendly Recommendation System using Reinforcement Learning report](https://github.com/ChristosKonstantas/Network-Friendly-Recommendation-System-using-Reinforcement-Learning/blob/main/NFR_Report.pdf): to study the whole implementation of [Value Iteration](https://gibberblot.github.io/rl-notes/single-agent/value-iteration.html), [Policy Iteration](https://gibberblot.github.io/rl-notes/single-agent/policy-iteration.html), [Q-learning](https://en.wikipedia.org/wiki/Q-learning) and [SARSA](https://en.wikipedia.org/wiki/State%E2%80%93action%E2%80%93reward%E2%80%93state%E2%80%93action) on the general [Network Friendly Recommendations](https://arxiv.org/abs/2110.00772) problem.
