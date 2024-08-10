@@ -40,10 +40,11 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
 ---
 
-**Q-Learning flowchart and state-action estimates Q**
+**Q-Learning flowchart**
 
 ![image](https://github.com/user-attachments/assets/02014b6d-a063-4f3c-ace2-0388db2040b7)
 
+**Q-values matrix**
 ![image](https://github.com/user-attachments/assets/265a8487-8085-4291-920a-307e0afd36ff)
 
 ---
