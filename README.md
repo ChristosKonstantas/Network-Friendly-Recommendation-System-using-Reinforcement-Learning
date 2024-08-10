@@ -40,7 +40,7 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
 ---
 
-** Q-Learning flowchart and state-action estimates Q**
+**Q-Learning flowchart and state-action estimates Q**
 
 ![image](https://github.com/user-attachments/assets/02014b6d-a063-4f3c-ace2-0388db2040b7)
 
@@ -48,7 +48,7 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
 ---
 
-** Benchmark (Value Iteration) **
+**Benchmark (Value Iteration)**
 ![image](https://github.com/user-attachments/assets/e7409350-859f-4c89-9017-3eb074e4c259)
 
 ---
