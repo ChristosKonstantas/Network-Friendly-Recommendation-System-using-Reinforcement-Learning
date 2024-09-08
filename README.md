@@ -16,6 +16,7 @@ pip install -r requirements.txt
 python3 main.py 
 ```
 
+## Project Description
 This is a project where we see the effectiveness of some Reinforcement Learning methods in order to provide Network Friendly Recommendations (NFR) to a user and reduce the cost of providing non-cached items. 
 
 * Environment (Content Catalogue):
