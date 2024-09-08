@@ -1,4 +1,21 @@
 # Network-Friendly-Recommendation-System-using-Reinforcement-Learning
+
+## Instructions
+### Windows
+```
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+### Unix/Linux/Mac
+```
+python3 -m venv venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 main.py 
+```
+
 This is a project where we see the effectiveness of some Reinforcement Learning methods in order to provide Network Friendly Recommendations (NFR) to a user and reduce the cost of providing non-cached items. 
 
 * Environment (Content Catalogue):
