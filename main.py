@@ -3,7 +3,7 @@ import numpy as np
 import math
 import time
 from tqdm import tqdm
-
+from utils import NFR_Environment
 
 # This will be done for every now state s and every action
 def transition_probabilities(s, s_next, w_s, q, a):
@@ -30,17 +30,17 @@ def transition_probabilities(s, s_next, w_s, q, a):
 # Serves for reducing expected cost due to non-cached contents, but it is not so good for ensuring user satisfaction
 # Although the transition probabilities give a little greater probability that user clicks one of the recommendations
 
-def transition_probability_matrix(state_space, action_space):
-    trans_prob_array = np.zeros((len(state_space) - 1, len(action_space), len(state_space)))
+def transition_probability_matrix(env):
+    trans_prob_array = np.zeros((len(env.state_space) - 1, len(env.action_space), len(env.state_space)))
     print('shape is', trans_prob_array.shape)
-    for s in range(len(state_space) - 1):
-        action_space_s = [i for i in action_space if s not in i]
+    for s in range(len(env.state_space) - 1):
+        action_space_s = [i for i in env.action_space if s not in i]
         action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(action)] for action
                             in action_space_s]
         for action_index in action_space_s_ind:
-            for s_next in range(len(state_space)):
+            for s_next in range(len(env.state_space)):
                 trans_prob_array[s, action_index, s_next] = transition_probabilities(s, s_next,
-                                                                                    action_space[action_index], q, a)
+                                                                                    env.action_space[action_index], q, a)
     return trans_prob_array
 
 def relevant(w, U, user_now_watches):
@@ -99,22 +99,22 @@ def simulate_user_sessions(policy, state_space, action_space, num_of_sessions):
         sessions.append(session)
     return sessions
 
-def value_iteration(state_space, action_space, cached_matrix, gamma=1.0, epsilon=1e-10):
-    trans_prob_array = transition_probability_matrix(state_space, action_space)
+def value_iteration(env, gamma=1.0, epsilon=1e-10):
+    trans_prob_array = transition_probability_matrix(env)
     t = 0
-    V = (np.zeros(len(state_space), dtype=np.float64))
-    value_evolution = np.zeros((0, len(state_space)),
+    V = (np.zeros(len(env.state_space), dtype=np.float64))
+    value_evolution = np.zeros((0, len(env.state_space)),
                             dtype=np.float64)  # 2D array to store the evolution of the Value function
     value_evolution = np.vstack((value_evolution, V))
     while True:
-        Q = np.zeros((len(state_space), len(action_space)), dtype=np.float64)
+        Q = np.zeros((len(env.state_space), len(env.action_space)), dtype=np.float64)
 
-        for s in range(len(state_space) - 1):
-            for action_index in range(len(action_space)):
-                for s_next in range(len(state_space)):
+        for s in range(len(env.state_space) - 1):
+            for action_index in range(len(env.action_space)):
+                for s_next in range(len(env.state_space)):
                     # Bellman expectation equation (we use the min operator because we are in the min-cost setting)
                     Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            reward_function(s, s_next, cached_matrix, action_space[action_index]) + gamma * V[
+                            reward_function(s, s_next, env.cached_matrix, env.action_space[action_index]) + gamma * V[
                         s_next])
 
         if np.max(np.abs(V - np.min(Q, axis=1))) < epsilon:  # norm-1
@@ -134,20 +134,20 @@ def value_iteration(state_space, action_space, cached_matrix, gamma=1.0, epsilon
     return V, pi, Q, value_evolution
 
 
-def policy_evaluation(state_space, action_space, pi, trans_prob_array, gamma=1.0, epsilon=1e-10):
+def policy_evaluation(env, pi, trans_prob_array, gamma=1.0, epsilon=1e-10):
     t = 0
-    prev_V = np.zeros(len(state_space))
+    prev_V = np.zeros(len(env.state_space))
     # Repeat all value sweeps until convergence
     while True:
-        V = np.zeros(len(state_space))
+        V = np.zeros(len(env.state_space))
 
-        for s in range(len(state_space)):
-            if s == len(state_space) - 1:
+        for s in range(len(env.state_space)):
+            if s == len(env.state_space) - 1:
                 continue
             else:
-                for s_next in range(len(state_space)):
+                for s_next in range(len(env.state_space)):
                     V[s] += trans_prob_array[s, pi(s), s_next] * (
-                            reward_function(s, s_next, cached_matrix, action_space[pi(s)]) + gamma * prev_V[s_next])
+                            reward_function(s, s_next, env.cached_matrix, env.action_space[pi(s)]) + gamma * prev_V[s_next])
         if np.max(np.abs(prev_V - V)) < epsilon:
             break
         prev_V = V.copy()
@@ -156,45 +156,45 @@ def policy_evaluation(state_space, action_space, pi, trans_prob_array, gamma=1.0
         return V
 
 
-def policy_improvement(V, state_space, action_space, trans_prob_array, gamma=1.0, epsilon=1e-10):
-    Q = np.zeros((len(state_space), len(action_space)), dtype=np.float64)
+def policy_improvement(V, env, trans_prob_array, gamma=1.0, epsilon=1e-10):
+    Q = np.zeros((len(env.state_space), len(env.action_space)), dtype=np.float64)
 
-    for s in range(len(state_space)):
+    for s in range(len(env.state_space)):
 
-        if s != len(state_space) - 1:
-            for action_index in range(len(action_space)):
-                for s_next in range(len(state_space)):
+        if s != len(env.state_space) - 1:
+            for action_index in range(len(env.action_space)):
+                for s_next in range(len(env.state_space)):
                     Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            reward_function(s, s_next, cached_matrix, action_space[action_index]) + gamma * V[
+                            reward_function(s, s_next, env.cached_matrix, env.action_space[action_index]) + gamma * V[
                         s_next])
     new_pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
 
     return new_pi, Q
 
 
-def policy_iteration(state_space, action_space, trans_prob_array, gamma=1.0, epsilon=1e-10):
+def policy_iteration(senv, trans_prob_array, gamma=1.0, epsilon=1e-10):
     t = 0
-    value_evolution = np.zeros((0, len(state_space)),
+    value_evolution = np.zeros((0, len(env.state_space)),
                             dtype=np.float64)  # 2D array to store the evolution of the Value function
 
     total_cost = 0  # Track total reward for the episode
-    random_actions = np.random.choice(list(range(len(action_space))),
-                                    len(state_space))  # start with random actions for each state
-    cached_costs = np.where(cached_matrix == 0, -1, cached_matrix)
+    random_actions = np.random.choice(list(range(len(env.action_space))),
+                                    len(env.state_space))  # start with random actions for each state
+    cached_costs = np.where(env.cached_matrix == 0, -1, env.cached_matrix)
 
     pi = lambda s: {s: a for s, a in enumerate(random_actions)}[
         s]  # and define your initial policy pi_0 based on these action (remember, we are passing policies around as python "functions", hence the need for this second line)
 
     while True:
-        old_pi = {s: pi(s) for s in range(len(state_space))}  # keep the old policy to compare with new
+        old_pi = {s: pi(s) for s in range(len(env.state_space))}  # keep the old policy to compare with new
         # evaluate latest policy --> you receive its converged value function
-        V = policy_evaluation(state_space, action_space, pi, trans_prob_array, gamma, epsilon)
+        V = policy_evaluation(env, pi, trans_prob_array, gamma, epsilon)
         value_evolution = np.vstack((value_evolution, V))  # append the latest value function to value_evolution
-        pi, Q = policy_improvement(V, state_space, action_space, trans_prob_array, gamma, epsilon)  # improve the policy
+        pi, Q = policy_improvement(V, env, trans_prob_array, gamma, epsilon)  # improve the policy
         t += 1
 
         if old_pi == {s: pi(s) for s in range(len(
-                state_space))}:  # you have converged to the optimal policy if the "improved" policy is exactly the same as in the previous step
+                env.state_space))}:  # you have converged to the optimal policy if the "improved" policy is exactly the same as in the previous step
             break
 
 
@@ -203,26 +203,26 @@ def policy_iteration(state_space, action_space, trans_prob_array, gamma=1.0, eps
     return V, pi, Q, value_evolution
 
 
-def Q_learning(state_space, action_space, num_episodes, learning_rate_schedule, discount_factor):
+def Q_learning(env, num_episodes, learning_rate_schedule, discount_factor):
     # Initialize the Q-table
-    num_states = len(state_space)
-    num_actions = len(action_space)
+    num_states = len(env.state_space)
+    num_actions = len(env.action_space)
     Q = np.zeros((num_states, num_actions))  # Q-table initialized with zeros
     cost_per_round = np.zeros((num_episodes,))  # Track total rewards for each episode and state
-    cached_costs = np.where(cached_matrix == 0, -1, cached_matrix)
+    cached_costs = np.where(env.cached_matrix == 0, -1, env.cached_matrix)
 
     # Q-learning algorithm
     for episode in tqdm(range(num_episodes), desc ='Q_Learning running'):
         learning_rate = learning_rate_schedule[episode]  # Select learning rate for current episode
         total_cost = 0  # Track total reward for the episode
         # Initialize the state
-        t_s = np.ones((len(state_space), 1))  # Visit count for each state initialized with ones
-        s = np.random.choice(state_space)  # Randomly initialize the state from the state space
-        while s != len(state_space) - 1:  # Repeat until a terminal state is reached
+        t_s = np.ones((len(env.state_space), 1))  # Visit count for each state initialized with ones
+        s = np.random.choice(env.state_space)  # Randomly initialize the state from the state space
+        while s != len(env.state_space) - 1:  # Repeat until a terminal state is reached
             epsilon = t_s[s] ** (-1 / 3)  # Calculate exploration probability based on visit count
 
             # Choose an action using epsilon-greedy policy
-            action_space_s = [i for i in action_space if s not in i]  # Available actions in current state
+            action_space_s = [i for i in env.action_space if s not in i]  # Available actions in current state
             action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
                                 act in action_space_s]  # Indices of available actions in current state
             if np.random.rand() < epsilon:
@@ -236,8 +236,8 @@ def Q_learning(state_space, action_space, num_episodes, learning_rate_schedule, 
                 action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
 
             # Perform the action and observe the next state and reward
-            s_next, recom = surfing_user(state_space, action_space, action)  # Determine next state based on current state and action
-            reward = reward_function(s, s_next, cached_matrix, action_space[action])  # Calculate the reward
+            s_next, recom = surfing_user(env.state_space, env.action_space, action)  # Determine next state based on current state and action
+            reward = reward_function(s, s_next, env.cached_matrix, env.action_space[action])  # Calculate the reward
 
 
             # Update Q-value using the Q-learning update rule
@@ -247,7 +247,7 @@ def Q_learning(state_space, action_space, num_episodes, learning_rate_schedule, 
             t_s[s] += 1  # Increment visit count for the next state
 
         pi_temp = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-        cost_per_round[episode] = get_expected_cost_per_round(action_space, state_space, pi_temp, total_cost, cached_costs)
+        cost_per_round[episode] = env.get_expected_cost_per_round(pi_temp, total_cost, cached_costs)
 
 
 
@@ -303,7 +303,7 @@ def Q_learning_test(state_space, action_space, num_episodes, learning_rate, disc
             # Update Q-value using the Q-learning update rule
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:]) # Oracle transition
             Q[s, action] += learning_rate * (
-                    reward_function(s, s_next, cached_matrix, action_space[action]) + discount_factor * np.min(
+                    reward_function(s, s_next, env.cached_matrix, action_space[action]) + discount_factor * np.min(
                 Q[s_next, :]) - Q[s, action])
 
             s = s_next
@@ -376,21 +376,21 @@ def meta_train(state_space, action_space, num_episodes, initial_learning_rate, d
     return learning_rate_schedule
 
 
-def SARSA(state_space, action_space, num_episodes, learning_rate, discount_factor):
+def SARSA(env, num_episodes, learning_rate, discount_factor):
     # Initialize the Q-table
-    num_states = len(state_space)
-    num_actions = len(action_space)
+    num_states = len(env.state_space)
+    num_actions = len(env.action_space)
     Q = np.zeros((num_states, num_actions))
-    t_s = np.ones((len(state_space), 1))
+    t_s = np.ones((len(env.state_space), 1))
 
     # SARSA algorithm
-    for episode in tqdm(range(num_episodes), desc = 'SARSA is running'):
+    for _ in tqdm(range(num_episodes), desc = 'SARSA is running'):
         # Initialize the state
-        s = np.random.choice(state_space)  # randomly initialize the state from p = np.full(k+1, 1 / (k+1)) (uniform)
-        while s != len(state_space) - 1:  # repeat until we sample a terminal state from the pmf above
+        s = np.random.choice(env.state_space)  # randomly initialize the state from p = np.full(k+1, 1 / (k+1)) (uniform)
+        while s != len(env.state_space) - 1:  # repeat until we sample a terminal state from the pmf above
             epsilon = t_s[s] ** (-1 / 3)
             # Choose an action using epsilon-greedy policy
-            action_space_s = [i for i in action_space if s not in i]
+            action_space_s = [i for i in env.action_space if s not in i]
             action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
                                 act
                                 in action_space_s]
@@ -408,10 +408,10 @@ def SARSA(state_space, action_space, num_episodes, learning_rate, discount_facto
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:])
 
             # Q-learning doesn't know 'a' but this is does not depend on the user's behavior on random episodes
-            s_next, recom = surfing_user(state_space, action_space, action)
+            s_next, recom = surfing_user(env.state_space, env.action_space, action)
 
             # Choose a good next action using epsilon-greedy policy
-            action_space_snext = [i for i in action_space if s not in i]
+            action_space_snext = [i for i in env.action_space if s not in i]
             action_space_snext_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
                                     act
                                     in action_space_snext]
@@ -428,7 +428,7 @@ def SARSA(state_space, action_space, num_episodes, learning_rate, discount_facto
 
             # Update Q-value using the Q-learning update rule
 
-            target_estimate = reward_function(s, s_next, cached_matrix, action_space[action]) + discount_factor * Q[
+            target_estimate = reward_function(s, s_next, env.cached_matrix, env.action_space[action]) + discount_factor * Q[
                 s_next, action_next]
             Q[s, action] += learning_rate * (target_estimate - Q[s, action])
 
@@ -452,28 +452,30 @@ if __name__ == '__main__':
     k = 10 # number of contents
     N = 2  # recommendation batch size
     num_cached = 0.2  # out of 1, thus the num_cached*100%
+    
+    # Network Friendly Recommendations environment
+    env = NFR_Environment(k=k, N=N, num_cached=num_cached, q=q, a=a, u_min=u_min)
     C = int(num_cached * k)
     print('k=', k)
 
     # a kxk symmetric matrix with values of main diagonal equal to zero and the other values are random between 0 and 1
-    U = create_symmetric_matrix(k)
+    U = env.create_symmetric_matrix()
     # print('U=')
     # print_matrix(U)
 
     # create the matrix with the cached contents
-    cached_matrix = random_ind_cache_matrix(C, k)
-    plot_cached_matrix(cached_matrix)
-    print('Cost matrix:\n', cached_matrix)
+    env.plot_cached_matrix()
+    print('Cost matrix:\n', env.cached_matrix)
     print(
         '\n **------------------------------ Analysis of the MDP environment --------------------------------------------** \n')
 
-    print(sum(cached_matrix[np.random.randint(0, k - 1)][:] == 1), "out of", k, 'contents are cached, approximately the',
-        format((100 * (sum(cached_matrix[np.random.randint(0, k - 1)][:] == 1) / k)), ".2f"),
+    print(sum(env.cached_matrix[np.random.randint(0, k - 1)][:] == 1), "out of", k, 'contents are cached, approximately the',
+        format((100 * (sum(env.cached_matrix[np.random.randint(0, k - 1)][:] == 1) / k)), ".2f"),
         '% of one random row of recommendations.')
 
     # UN_i is the set of  the highest N < k values of U related to content i=1,2,...,k
     # j_ind_UN is the set of the indices of the highest N < k values of U related to content i=1,2,...,k
-    [UN_i, j_ind_UN] = N_highest_values(U, k, N)  # benchmark for user satisfaction
+    [UN_i, j_ind_UN] = env.N_highest_values()  # benchmark for user satisfaction
     # print_matrix(UN_i)
     # print(j_ind_UN)
 
@@ -488,7 +490,7 @@ if __name__ == '__main__':
     # For example, if k=4 and N=2, the dictionary will be:
     # {0: [0, 1], 1: [0, 2], 2: [0, 3], 3: [1, 2], 4: [1, 3], 5: [2, 3]}
 
-    combinations_dict = dict_of_combinations(k, N)
+    combinations_dict = env.dict_of_combinations()
 
     print(combinations_dict)
     # print("Number of all possible distinct batches of size N:", len(distinct_combinations), 'and
@@ -498,11 +500,9 @@ if __name__ == '__main__':
     #    print(comb, ":", idx)
 
     #  -- Construction of the Markov Decision Process (MDP) -- #
-    state_space = np.arange(0, k + 1)  # k+1 states: 0, ...,k where k is the terminal state
-    print('The state space has length of', len(state_space))
-    action_space = [comb for comb in combinations_dict.values()]
-    print("\nState Space:", state_space)
-    print("\nAction Space:", action_space)
+    print('The state space has length of', len(env.state_space))
+    print("\nState Space:", env.state_space)
+    print("\nAction Space:", env.action_space)
     '''
     A = transition_probabilities(9, 0, [0, 1], q, a)
     print(A)
@@ -539,14 +539,14 @@ if __name__ == '__main__':
     # *** (1) and (2) are model based methods *** #
     # (1) ---------- Execute the value iteration algorithm -------------- #
     startVI = time.time()
-    V, pi, Q, value_evolution = value_iteration(state_space, action_space, cached_matrix, 0.8, 1e-5)
+    V, pi, Q, value_evolution = value_iteration(env, 0.8, 1e-5)
     endVI = time.time()
     # Calculate states and iterations
-    states = np.arange(len(state_space))
+    states = np.arange(len(env.state_space))
     iterations = np.arange(value_evolution.shape[0])
     # Plot value evolution
-    plot_value_evolution(value_evolution, states, iterations, 'Value Iteration')
-    plot_q_values(Q, state_space, action_space, 'Value Iteration')
+    env.plot_value_evolution(value_evolution, states, iterations, 'Value Iteration')
+    env.plot_q_values(Q, 'Value Iteration')
     print("Execution time for Value Iteration: ", endVI - startVI, "seconds \n")
 
     print('\n--- Value function for value iteration ---- \n')
@@ -556,13 +556,13 @@ if __name__ == '__main__':
     print(Q)
 
     print('\n--- Policy after value iteration ---- \n')
-    for s in range(len(state_space) - 1):
-        batch = action_space[pi(s)]
+    for s in range(len(env.state_space) - 1):
+        batch = env.action_space[pi(s)]
         print('\n If user watches content s= ', s, 'we recommend ', batch)
         print('\n Relevance between s and batch[0]: ', U[s, batch[0]])
         print('\n Relevance between s and batch[1]: ', U[s, batch[1]])
-        print('\n Cache cost between s and batch[0]', cached_matrix[s, batch[0]])
-        print('\n Cache cost between s and batch[1]', cached_matrix[s, batch[1]])
+        print('\n Cache cost between s and batch[0]', env.cached_matrix[s, batch[0]])
+        print('\n Cache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n-------------------------------------------\n')
 
     print('\n---************************************** ---- \n')
@@ -573,24 +573,24 @@ if __name__ == '__main__':
 
     # (2) ---------- Execute the policy iteration algorithm -------------- #
 
-    trans_prob_array = transition_probability_matrix(state_space, action_space)
+    trans_prob_array = transition_probability_matrix(env)
     startPI = time.time()
-    V2, pi2, Q2, valEvol = policy_iteration(state_space, action_space, trans_prob_array, 0.8, 1e-5)
-    states = np.arange(len(state_space))
+    V2, pi2, Q2, valEvol = policy_iteration(env, trans_prob_array, 0.8, 1e-5)
+    states = np.arange(len(env.state_space))
     iterations = np.arange(value_evolution.shape[0])
-    plot_value_evolution(value_evolution, states, iterations, 'Policy Iteration')
+    env.plot_value_evolution(value_evolution, states, iterations, 'Policy Iteration')
 
     endPI = time.time()
     print("Execution time for Policy Iteration: ", endPI - startPI, "seconds \n")
-    plot_q_values(Q2, state_space, action_space, 'Policy Iteration')
+    env.plot_q_values(Q2, 'Policy Iteration')
     print('\n--- Policy after policy iteration ---- \n')
-    for s in range(len(state_space) - 1):
-        batch = action_space[pi2(s)]
+    for s in range(len(env.state_space) - 1):
+        batch = env.action_space[pi2(s)]
         print('\nIf user watches content s=', s, 'we recommend ', batch)
         print('\nRelevance between s and batch[0]: ', U[s, batch[0]])
         print('\nRelevance between s and batch[1]: ', U[s, batch[1]])
-        print('\nCache cost between s and batch[0]', cached_matrix[s, batch[0]])
-        print('\nCache cost between s and batch[1]', cached_matrix[s, batch[1]])
+        print('\nCache cost between s and batch[0]', env.cached_matrix[s, batch[0]])
+        print('\nCache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n----------------------------------------------------\n')
 
     print('\n---************************************** ---- \n')
@@ -604,30 +604,31 @@ if __name__ == '__main__':
 
     # Step 4: Calculate the average cost metric for policy iteration after simulating 10 user sessions
     #PI_sessions = simulate_user_sessions(pi_PolicyIteration, state_space, action_space, 10)
-    #PI_cost = np.sum(calculate_cost_metrics(PI_sessions, cached_matrix, state_space))/len(PI_sessions)
+    #PI_cost = np.sum(calculate_cost_metrics(PI_sessions, env.cached_matrix, state_space))/len(PI_sessions)
 
 
     # *** (3) and (4) are model free methods *** #
     # (3) ---------- Execute SARSA algorithm -------------- #
     startSARSA = time.time()
-    Q_SARSA, pi_SARSA = SARSA(state_space, action_space, 100000, 0.1, gamma)
+    episodes_S = 100000
+    Q_SARSA, pi_SARSA = SARSA(env, episodes_S, learning_rate=0.1, discount_factor=gamma)
     endSARSA = time.time()
     print("Execution time for SARSA: ", endSARSA - startSARSA, "seconds \n")
 
     print('\n--- Policy after SARSA ---- \n')
-    for s in range(len(state_space) - 1):
-        batch = action_space[pi_SARSA(s)]
+    for s in range(len(env.state_space) - 1):
+        batch = env.action_space[pi_SARSA(s)]
         print('\nIf user watches content s=', s, 'we recommend ', batch)
         print('\nRelevance between s and batch[0]: ', U[s, batch[0]])
         print('\nRelevance between s and batch[1]: ', U[s, batch[1]])
-        print('\nCache cost between s and batch[0]', cached_matrix[s, batch[0]])
-        print('\nCache cost between s and batch[1]', cached_matrix[s, batch[1]])
+        print('\nCache cost between s and batch[0]', env.cached_matrix[s, batch[0]])
+        print('\nCache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n----------------------------------------------------\n')
 
-    plot_q_values(Q_SARSA, state_space, action_space, 'SARSA')
+    env.plot_q_values(Q_SARSA, 'SARSA')
 
     print('\n---************************************** ---- \n')
-    if all(pi_SARSA(s) == pi2(s) for s in range(len(state_space) - 1)):
+    if all(pi_SARSA(s) == pi2(s) for s in range(len(env.state_space) - 1)):
         print('The policies are the same')
 
 
@@ -637,14 +638,14 @@ if __name__ == '__main__':
     episodesQ = 60000 # number of episodes
     init_learning_rate = 0.01 # initial learning rate
     startLearningRate = time.time()
-    learning_rate_schedule = meta_train(state_space, action_space, episodesQ, init_learning_rate, gamma)
+    learning_rate_schedule = meta_train(env.state_space, env.action_space, episodesQ, init_learning_rate, gamma)
     endLearningRate = time.time()
 
     print("Execution time for learning rate schedule: ", endLearningRate - startLearningRate, "seconds \n")
 
     startQL = time.time()
 
-    QQ, piQ, cost = Q_learning(state_space, action_space, episodesQ, learning_rate_schedule, gamma)
+    QQ, piQ, cost = Q_learning(env, episodesQ, learning_rate_schedule, gamma)
 
 
     print(learning_rate_schedule)
@@ -653,16 +654,16 @@ if __name__ == '__main__':
     print("Execution time for Q Learning: ", endQL - startQL, "seconds \n")
 
     print('\n--- Policy after Q learning ---- \n')
-    for s in range(len(state_space) - 1):
-        batch = action_space[piQ(s)]
+    for s in range(len(env.state_space) - 1):
+        batch = env.action_space[piQ(s)]
         print('\nIf user watches content s=', s, 'we recommend ', batch)
         print('\nRelevance between s and batch[0]: ', U[s, batch[0]])
         print('\nRelevance between s and batch[1]: ', U[s, batch[1]])
-        print('\nCache cost between s and batch[0]', cached_matrix[s, batch[0]])
-        print('\nCache cost between s and batch[1]', cached_matrix[s, batch[1]])
+        print('\nCache cost between s and batch[0]', env.cached_matrix[s, batch[0]])
+        print('\nCache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n----------------------------------------------------\n')
 
-    plot_q_values(QQ, state_space, action_space, 'Q Learning')
+    env.plot_q_values(QQ, 'Q Learning')
 
     print('\n---************************************** ---- \n')
     print('\n---************************************** ---- \n')
@@ -670,5 +671,5 @@ if __name__ == '__main__':
     print('\n---************************************** ---- \n')
     print('\n---************************************** ---- \n')
 
-    if all(piQ(s) == pi2(s) for s in range(len(state_space) - 1)):
+    if all(piQ(s) == pi2(s) for s in range(len(env.state_space) - 1)):
         print('The policies are the same with  Policy Iteration')
