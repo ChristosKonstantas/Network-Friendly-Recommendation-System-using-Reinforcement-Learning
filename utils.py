@@ -21,6 +21,20 @@ class NFR_Environment:
         self.state_space = np.arange(0, k + 1)
         self.action_space = [comb for comb in self.combinations_dict.values()]
 
+    def step(self, action):
+        p = np.random.rand()
+        recom = 0
+        if p < self.q:  # q has less probability if user is picky
+            s_next = self.k
+        else:
+            u = np.random.rand()
+            if u < self.a:
+                s_next = np.random.choice(self.action_space[action])  # Pick one of the N recommended items at random
+                recom = 1
+            else:
+                s_next = np.random.choice(range(len(self.state_space) - 1))  # Pick a random item from the catalog
+        return s_next, recom
+    
     def create_symmetric_matrix(self):
         matrix = np.zeros((self.k, self.k))  # Initialize matrix with zeros
 
@@ -256,3 +270,20 @@ class NFR_Environment:
                     total_cost += cached_costs[s, i]
 
         return total_cost / (len(self.state_space) - 1)
+
+    def simulate_user_sessions(self,policy, num_of_sessions):
+        sessions = []
+        np.random.seed(None)
+        for i in range(num_of_sessions):
+            session = []
+            state = np.random.randint(0, len(self.state_space) - 1)
+            session.append(state)
+            while True:
+                action = policy(state)
+                next_state, recom = self.step(action)
+                session.append(next_state)
+                if next_state == len(self.state_space) - 1:
+                    break
+                state = next_state
+            sessions.append(session)
+        return sessions

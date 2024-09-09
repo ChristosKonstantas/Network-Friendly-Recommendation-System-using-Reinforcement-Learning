@@ -68,37 +68,6 @@ def reward_function(s, s_next, cached_matrix, w_s):
     else:
         raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
 
-def surfing_user(state_space, action_space, action):
-    p = np.random.rand()
-    recom = 0
-    if p < q:  # q ligopithano an o user einai picky
-        s_next = k
-    else:
-        u = np.random.rand()
-        if u < a:
-            s_next = np.random.choice(action_space[action])  # Pick one of the recommended items at random
-            recom = 1
-        else:
-            s_next = np.random.choice(range(len(state_space) - 1))  # Pick a random item from the catalog
-    return s_next, recom
-
-def simulate_user_sessions(policy, state_space, action_space, num_of_sessions):
-    sessions = []
-    np.random.seed(None)
-    for i in range(num_of_sessions):
-        session = []
-        state = np.random.randint(0, len(state_space) - 1)
-        session.append(state)
-        while True:
-            action = policy(state)
-            next_state, recom = surfing_user(state_space, action_space, action)
-            session.append(next_state)
-            if next_state == len(state_space) - 1:
-                break
-            state = next_state
-        sessions.append(session)
-    return sessions
-
 def value_iteration(env, gamma=1.0, epsilon=1e-10):
     trans_prob_array = transition_probability_matrix(env)
     t = 0
@@ -172,7 +141,7 @@ def policy_improvement(V, env, trans_prob_array, gamma=1.0, epsilon=1e-10):
     return new_pi, Q
 
 
-def policy_iteration(senv, trans_prob_array, gamma=1.0, epsilon=1e-10):
+def policy_iteration(env, trans_prob_array, gamma=1.0, epsilon=1e-10):
     t = 0
     value_evolution = np.zeros((0, len(env.state_space)),
                             dtype=np.float64)  # 2D array to store the evolution of the Value function
@@ -236,7 +205,7 @@ def Q_learning(env, num_episodes, learning_rate_schedule, discount_factor):
                 action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
 
             # Perform the action and observe the next state and reward
-            s_next, recom = surfing_user(env.state_space, env.action_space, action)  # Determine next state based on current state and action
+            s_next, recom = env.step(action)  # Determine next state based on current state and action
             reward = reward_function(s, s_next, env.cached_matrix, env.action_space[action])  # Calculate the reward
 
 
@@ -274,7 +243,7 @@ def Q_learning_test(state_space, action_space, num_episodes, learning_rate, disc
     Q = np.zeros((num_states, num_actions))
     t_s = np.ones((len(state_space), 1))
     # Q-learning algorithm
-    for episode in range(num_episodes):
+    for _ in range(num_episodes):
         # Initialize the state
         s = np.random.choice(state_space)  # randomly initialize the state from p = np.full(k+1, 1 / (k+1)) (uniform)
         while s != len(state_space) - 1:  # repeat until we sample a terminal state from the pmf above
@@ -298,7 +267,7 @@ def Q_learning_test(state_space, action_space, num_episodes, learning_rate, disc
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:])
 
             # Q-learning doesn't know 'a' but this is does not depend on the user's behavior on random episodes
-            s_next, recom = surfing_user(state_space, action_space, action)
+            s_next, recom = env.step(action)
 
             # Update Q-value using the Q-learning update rule
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:]) # Oracle transition
@@ -408,7 +377,7 @@ def SARSA(env, num_episodes, learning_rate, discount_factor):
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:])
 
             # Q-learning doesn't know 'a' but this is does not depend on the user's behavior on random episodes
-            s_next, recom = surfing_user(env.state_space, env.action_space, action)
+            s_next, recom = env.step(action)
 
             # Choose a good next action using epsilon-greedy policy
             action_space_snext = [i for i in env.action_space if s not in i]
