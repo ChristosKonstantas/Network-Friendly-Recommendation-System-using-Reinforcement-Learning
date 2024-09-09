@@ -23,6 +23,7 @@ python3 main.py
 
 ## Project Description
 This is a project where we see the effectiveness of some Reinforcement Learning methods in order to provide Network Friendly Recommendations (NFR) to a user and reduce the cost of providing non-cached items. 
+**Attention**: The problem is treated as a minimization problem because the reward function is effectively a cost function.
 
 * Environment (Content Catalogue):
 
@@ -51,14 +52,6 @@ This is a project where we see the effectiveness of some Reinforcement Learning 
 
     Value Iteration and Policy Iteration to optimize recommendations, assuming all environment parameters are known.
     Q-learning and SARSA assuming parameters α and u_min are not known (but the u_ij relevance values, and q are still known).
-
-
-
-* Instructions:
-0) Open terminal.
-1) git clone https://github.com/ChristosKonstantas/Network-Friendly-Recommendation-System-using-Reinforcement-Learning.git to a folder of preference.
-2) go to venv/Scripts and execute './activate'.
-3) go to the directory where the .py files are and execute 'python main.py' or 'python3 main.py'.
 
 
 ---
