@@ -1,10 +1,9 @@
-from utils import *
 import numpy as np
 import math
 import time
 from tqdm import tqdm
 from utils import NFR_Environment
-
+from typing import overload, Callable, Tuple
 # This will be done for every now state s and every action
 def transition_probabilities(s, s_next, w_s, q, a):
     if s > k - 1:
