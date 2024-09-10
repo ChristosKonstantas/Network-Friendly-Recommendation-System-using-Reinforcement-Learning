@@ -1,355 +1,12 @@
 import numpy as np
 import math
 import time
-from tqdm import tqdm
 import matplotlib.pyplot as plt
-from utils import NFR_Environment
+from utils import NFR_Environment    
+from rl_algorithms import ModelBased, ModelFree, RL_Utils
 
-# Serves for reducing expected cost due to non-cached contents, but it is not so good for ensuring user satisfaction
-# Although the transition probabilities give a little greater probability that user clicks one of the recommendations
-def value_iteration(env, gamma=1.0, epsilon=1e-10):
-    trans_prob_array = env.transition_probability_matrix()
-    t = 0
-    V = (np.zeros(len(env.state_space), dtype=np.float64))
-    value_evolution = np.zeros((0, len(env.state_space)),
-                            dtype=np.float64)  # 2D array to store the evolution of the Value function
-    value_evolution = np.vstack((value_evolution, V))
-    while True:
-        Q = np.zeros((len(env.state_space), len(env.action_space)), dtype=np.float64)
-
-        for s in range(len(env.state_space) - 1):
-            for action_index in range(len(env.action_space)):
-                for s_next in range(len(env.state_space)):
-                    # Bellman expectation equation (we use the min operator because we are in the min-cost setting)
-                    Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            env.reward_function(s, s_next, action_index) + gamma * V[
-                        s_next])
-
-        if np.max(np.abs(V - np.min(Q, axis=1))) < epsilon:  # norm-1
-            break
-
-        V = np.min(Q,
-                axis=1)  # Bellman optimality equation to minimize Q over all actions and take the optimal state values
-        value_evolution = np.vstack(
-            (value_evolution, V))  # Append the current state Value function to value_evolution to plot it
-
-        t += 1  # Increment the number of iterations
-
-    pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[
-        s]  # Return the optimal policy given the optimal value function
-    print('Converged after %d iterations' % t)
-
-    return V, pi, Q, value_evolution
-
-
-def policy_evaluation(env, pi, trans_prob_array, gamma=1.0, epsilon=1e-10):
-    t = 0
-    prev_V = np.zeros(len(env.state_space))
-    # Repeat all value sweeps until convergence
-    while True:
-        V = np.zeros(len(env.state_space))
-
-        for s in range(len(env.state_space)):
-            if s == len(env.state_space) - 1:
-                continue
-            else:
-                for s_next in range(len(env.state_space)):
-                    V[s] += trans_prob_array[s, pi(s), s_next] * (
-                            env.reward_function(s, s_next, pi(s)) + gamma * prev_V[s_next])
-        if np.max(np.abs(prev_V - V)) < epsilon:
-            break
-        prev_V = V.copy()
-        t += 1
-
-        return V
-
-
-def policy_improvement(V, env, trans_prob_array, gamma=1.0, epsilon=1e-10):
-    Q = np.zeros((len(env.state_space), len(env.action_space)), dtype=np.float64)
-
-    for s in range(len(env.state_space)):
-
-        if s != len(env.state_space) - 1:
-            for action_index in range(len(env.action_space)):
-                for s_next in range(len(env.state_space)):
-                    Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            env.reward_function(s, s_next,action_index) + gamma * V[
-                        s_next])
-    new_pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-
-    return new_pi, Q
-
-
-def policy_iteration(env, trans_prob_array, gamma=1.0, epsilon=1e-10):
-    t = 0
-    value_evolution = np.zeros((0, len(env.state_space)),
-                            dtype=np.float64)  # 2D array to store the evolution of the Value function
-
-    total_cost = 0  # Track total reward for the episode
-    random_actions = np.random.choice(list(range(len(env.action_space))),
-                                    len(env.state_space))  # start with random actions for each state
-    cached_costs = np.where(env.cached_matrix == 0, -1, env.cached_matrix)
-
-    pi = lambda s: {s: a for s, a in enumerate(random_actions)}[
-        s]  # and define your initial policy pi_0 based on these action (remember, we are passing policies around as python "functions", hence the need for this second line)
-
-    while True:
-        old_pi = {s: pi(s) for s in range(len(env.state_space))}  # keep the old policy to compare with new
-        # evaluate latest policy --> you receive its converged value function
-        V = policy_evaluation(env, pi, trans_prob_array, gamma, epsilon)
-        value_evolution = np.vstack((value_evolution, V))  # append the latest value function to value_evolution
-        pi, Q = policy_improvement(V, env, trans_prob_array, gamma, epsilon)  # improve the policy
-        t += 1
-
-        if old_pi == {s: pi(s) for s in range(len(
-                env.state_space))}:  # you have converged to the optimal policy if the "improved" policy is exactly the same as in the previous step
-            break
-
-
-
-    print('converged after %d iterations' % t)  # keep track of the number of (outer) iterations to converge
-    return V, pi, Q, value_evolution
-
-
-def Q_learning_scheduled(env, num_episodes, learning_rate_schedule, discount_factor):
-    # Initialize the Q-table
-    num_states = len(env.state_space)
-    num_actions = len(env.action_space)
-    Q = np.zeros((num_states, num_actions))  # Q-table initialized with zeros
-    cost_per_round = np.zeros((num_episodes,))  # Track total rewards for each episode and state
-    cached_costs = np.where(env.cached_matrix == 0, -1, env.cached_matrix)
-
-    # Q-learning algorithm
-    for episode in tqdm(range(num_episodes), desc ='Q_Learning running'):
-        learning_rate = learning_rate_schedule[episode]  # Select learning rate for current episode
-        total_cost = 0  # Track total reward for the episode
-        # Initialize the state
-        t_s = np.ones((len(env.state_space), 1))  # Visit count for each state initialized with ones
-        s = np.random.choice(env.state_space)  # Randomly initialize the state from the state space
-        while s != len(env.state_space) - 1:  # Repeat until a terminal state is reached
-            epsilon = t_s[s] ** (-1 / 3)  # Calculate exploration probability based on visit count
-
-            # Choose an action using epsilon-greedy policy
-            action_space_s = [i for i in env.action_space if s not in i]  # Available actions in current state
-            action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
-                                act in action_space_s]  # Indices of available actions in current state
-            if np.random.rand() < epsilon:
-                # Explore: Randomly select an action from available actions
-                action = np.random.choice(action_space_s_ind,
-                                        p=np.full(len(action_space_s_ind), 1 / (len(action_space_s_ind)),
-                                                    dtype=np.float16))
-            else:
-                # Exploit: Select action with the minimum Q-value for the current state
-                Q_values = Q[s][action_space_s_ind]  # Filter Q-values for legal actions
-                action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
-
-            # Perform the action and observe the next state and reward
-            s_next, _ = env.step(action)  # Determine next state based on current state and action
-            reward = env.reward_function(s, s_next, action)  # Calculate the reward
-
-
-            # Update Q-value using the Q-learning update rule
-            Q[s, action] += learning_rate * (reward + discount_factor * np.min(Q[s_next, :]) - Q[s, action])
-
-            s = s_next  # Transition to the next state
-            t_s[s] += 1  # Increment visit count for the next state
-
-        pi_temp = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-        cost_per_round[episode] = env.get_expected_cost_per_round(pi_temp, total_cost, cached_costs)
-
-
-
-
-
-    # Plot the average expected cached cost for all states
-    plt.plot(np.arange(num_episodes), cost_per_round)
-    plt.xlabel("Episode")
-    plt.ylabel("Expected Cost")
-    plt.title("Q-Learning: Expected Cost for all states")
-    plt.text(num_episodes-50000, 1, r"cost $=-1$ for a cached content and $+1$ otherwise", fontsize=8, color="black")
-    plt.show()
-
-    # Define the policy function
-    pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-
-    return Q, pi, cost_per_round
-
-
-def Q_learning(state_space, action_space, num_episodes, learning_rate, discount_factor):
-    # Initialize the Q-table
-    num_states = len(state_space)
-    num_actions = len(action_space)
-    Q = np.zeros((num_states, num_actions))
-    t_s = np.ones((len(state_space), 1))
-    # Q-learning algorithm
-    for _ in range(num_episodes):
-        # Initialize the state
-        s = np.random.choice(state_space)  # randomly initialize the state from p = np.full(k+1, 1 / (k+1)) (uniform)
-        while s != len(state_space) - 1:  # repeat until we sample a terminal state from the pmf above
-            epsilon = t_s[s] ** (-1 / 3)
-            # Choose an action using epsilon-greedy policy
-            action_space_s = [i for i in action_space if s not in i]
-            action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
-                                act
-                                in action_space_s]
-            if np.random.rand() < epsilon:
-                # Explore
-                action = np.random.choice(action_space_s_ind,
-                                        p=np.full(len(action_space_s_ind), 1 / (len(action_space_s_ind)),
-                                                    dtype=np.float16))  # Explore
-            else:
-                # Exploit
-                Q_values = Q[s][action_space_s_ind]  # Filter Q-values for legal actions
-                action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
-
-            # Perform the action and observe the next state and reward
-            # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:])
-
-            # Q-learning doesn't know 'a' but this is does not depend on the user's behavior on random episodes
-            s_next, recom = env.step(action)
-
-            # Update Q-value using the Q-learning update rule
-            # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:]) # Oracle transition
-            Q[s, action] += learning_rate * (
-                    env.reward_function(s, s_next, action) + discount_factor * np.min(
-                Q[s_next, :]) - Q[s, action])
-
-            s = s_next
-            t_s[s] += 1
-    pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-
-    return Q, pi
-
-
-def pick_minQ_action(state, actions, Q):
-    Q_values = Q[state][actions]  # Filter Q-values for legal actions
-    min_action = actions[np.argmin(Q_values)]  # Select action with min Q-value
-
-    return min_action
-
-
-
-
-def meta_train(state_space, action_space, num_episodes, initial_learning_rate, discount_factor):
-    learning_rate_schedule = np.ones(num_episodes) * initial_learning_rate
-    learning_rate = initial_learning_rate
-    performance_improvements = np.zeros(num_episodes)
-    threshold = 0.1  # Initial threshold value
-    increase_factor = 1.1  # Initial increase factor
-    decrease_factor = 0.9  # Initial decrease factor
-    performance_improvement = 0.0
-    # Perform meta-training
-    for episode in tqdm(range(num_episodes), desc= 'meta train is running '):
-        # Call the Q-learning function with the current learning rate
-        Q, _ = Q_learning(state_space, action_space, 1, learning_rate_schedule[episode], discount_factor)
-
-        # Determine the performance improvement based on Q-values or other metrics
-        if episode > 0:
-            prev_Q, _ = Q_learning(state_space, action_space, 1, learning_rate_schedule[episode - 1],
-                                        discount_factor)
-            performance_improvement = np.mean(np.abs(Q - prev_Q))
-            performance_improvements = np.append(performance_improvements, performance_improvement)
-
-            # Adjust the learning rate based on the performance improvement
-            if performance_improvement > threshold:
-                learning_rate *= increase_factor
-            else:
-                learning_rate *= decrease_factor
-
-            # Update the threshold as the mean of the previous 5 performance improvements
-            threshold = np.mean(performance_improvements[-5:])
-
-        # Update the learning rate schedule
-        learning_rate_schedule = np.append(learning_rate_schedule, learning_rate)
-
-    ''' 
-    # Plot the learning rate schedule and performance improvements
-    plt.figure(figsize=(10, 4))
-    plt.subplot(1, 2, 1)
-    plt.plot(range(num_episodes), learning_rate_schedule)
-    plt.xlabel('Episode')
-    plt.ylabel('Learning Rate')
-    plt.title('Learning Rate Schedule')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(range(1, num_episodes), performance_improvements)
-    plt.xlabel('Episode')
-    plt.ylabel('Performance Improvement')
-
-
-    plt.tight_layout()
-    plt.show()
-    '''
-
-    return learning_rate_schedule
-
-
-def SARSA(env, num_episodes, learning_rate, discount_factor):
-    # Initialize the Q-table
-    num_states = len(env.state_space)
-    num_actions = len(env.action_space)
-    Q = np.zeros((num_states, num_actions))
-    t_s = np.ones((len(env.state_space), 1))
-
-    # SARSA algorithm
-    for _ in tqdm(range(num_episodes), desc = 'SARSA is running'):
-        # Initialize the state
-        s = np.random.choice(env.state_space)  # randomly initialize the state from p = np.full(k+1, 1 / (k+1)) (uniform)
-        while s != len(env.state_space) - 1:  # repeat until we sample a terminal state from the pmf above
-            epsilon = t_s[s] ** (-1 / 3)
-            # Choose an action using epsilon-greedy policy
-            action_space_s = [i for i in env.action_space if s not in i]
-            action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
-                                act
-                                in action_space_s]
-            if np.random.rand() < epsilon:
-                # Explore
-                action = np.random.choice(action_space_s_ind,
-                                        p=np.full(len(action_space_s_ind), 1 / (len(action_space_s_ind)),
-                                                    dtype=np.float16))  # Explore
-            else:
-                # Exploit
-                Q_values = Q[s][action_space_s_ind]  # Filter Q-values for legal actions
-                action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
-
-            # Perform the action and observe the next state and reward
-            # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:])
-
-            # Q-learning doesn't know 'a' but this is does not depend on the user's behavior on random episodes
-            s_next, recom = env.step(action)
-
-            # Choose a good next action using epsilon-greedy policy
-            action_space_snext = [i for i in env.action_space if s not in i]
-            action_space_snext_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(act)] for
-                                    act
-                                    in action_space_snext]
-
-            if np.random.rand() < epsilon:
-                # Explore
-                action_next = np.random.choice(action_space_snext_ind,
-                                            p=np.full(len(action_space_snext_ind), 1 / (len(action_space_s_ind)),
-                                                        dtype=np.float16))  # Explore
-            else:
-                # Exploit
-                Q_values = Q[s_next][action_space_snext_ind]  # Filter Q-values for legal actions
-                action_next = action_space_snext_ind[np.argmin(Q_values)]  # Select action with min Q-value
-
-            # Update Q-value using the Q-learning update rule
-
-            target_estimate = env.reward_function(s, s_next, action) + discount_factor * Q[
-                s_next, action_next]
-            Q[s, action] += learning_rate * (target_estimate - Q[s, action])
-
-            s = s_next
-            action = action_next
-            t_s[s] += 1
-
-    pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
-
-    return Q, pi
 
 if __name__ == '__main__':
-
     start = time.time()
     # Global variables
     # random.seed(42)
@@ -368,8 +25,6 @@ if __name__ == '__main__':
 
     # a kxk symmetric matrix with values of main diagonal equal to zero and the other values are random between 0 and 1
     U = env.create_symmetric_matrix()
-    # print('U=')
-    # print_matrix(U)
 
     # create the matrix with the cached contents
     env.plot_cached_matrix()
@@ -435,21 +90,24 @@ if __name__ == '__main__':
 
 
     
-
+    rl_utils = RL_Utils(env)
     ############ BENCHMARKING ############
+    model_based_algorithms = ModelBased(env)
 
 
     # *** (1) and (2) are model based methods *** #
     # (1) ---------- Execute the value iteration algorithm -------------- #
+    
+    
     startVI = time.time()
-    V, pi, Q, value_evolution = value_iteration(env, 0.8, 1e-5)
+    V, pi, Q, value_evolution = model_based_algorithms.value_iteration(gamma=1.0, epsilon=1e-10)
     endVI = time.time()
     # Calculate states and iterations
     states = np.arange(len(env.state_space))
     iterations = np.arange(value_evolution.shape[0])
     # Plot value evolution
-    env.plot_value_evolution(value_evolution, states, iterations, 'Value Iteration')
-    env.plot_q_values(Q, 'Value Iteration')
+    rl_utils.plot_value_evolution(value_evolution, states, iterations, 'Value Iteration')
+    rl_utils.plot_q_values(Q, 'Value Iteration')
     print("Execution time for Value Iteration: ", endVI - startVI, "seconds \n")
 
     print('\n--- Value function for value iteration ---- \n')
@@ -475,17 +133,16 @@ if __name__ == '__main__':
     print('\n---************************************** ---- \n')
 
     # (2) ---------- Execute the policy iteration algorithm -------------- #
-
     trans_prob_array = env.transition_probability_matrix()
     startPI = time.time()
-    V2, pi2, Q2, valEvol = policy_iteration(env, trans_prob_array, 0.8, 1e-5)
+    V2, pi2, Q2, valEvol = model_based_algorithms.policy_iteration(gamma=1.0, epsilon=1e-10)
     states = np.arange(len(env.state_space))
     iterations = np.arange(value_evolution.shape[0])
-    env.plot_value_evolution(value_evolution, states, iterations, 'Policy Iteration')
+    rl_utils.plot_value_evolution(value_evolution, states, iterations, 'Policy Iteration')
 
     endPI = time.time()
     print("Execution time for Policy Iteration: ", endPI - startPI, "seconds \n")
-    env.plot_q_values(Q2, 'Policy Iteration')
+    rl_utils.plot_q_values(Q2, 'Policy Iteration')
     print('\n--- Policy after policy iteration ---- \n')
     for s in range(len(env.state_space) - 1):
         batch = env.action_space[pi2(s)]
@@ -505,16 +162,13 @@ if __name__ == '__main__':
 
     pi_PolicyIteration = pi2
 
-    # Step 4: Calculate the average cost metric for policy iteration after simulating 10 user sessions
-    #PI_sessions = simulate_user_sessions(pi_PolicyIteration, state_space, action_space, 10)
-    #PI_cost = np.sum(calculate_cost_metrics(PI_sessions, env.cached_matrix, state_space))/len(PI_sessions)
-
-
     # *** (3) and (4) are model free methods *** #
+    model_free_algorithms = ModelFree(env)
+
     # (3) ---------- Execute SARSA algorithm -------------- #
     startSARSA = time.time()
     episodes_S = 100000
-    Q_SARSA, pi_SARSA = SARSA(env, episodes_S, learning_rate=0.1, discount_factor=gamma)
+    Q_SARSA, pi_SARSA = model_free_algorithms.SARSA(num_episodes=episodes_S, learning_rate=0.1, discount_factor=gamma)
     endSARSA = time.time()
     print("Execution time for SARSA: ", endSARSA - startSARSA, "seconds \n")
 
@@ -528,7 +182,7 @@ if __name__ == '__main__':
         print('\nCache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n----------------------------------------------------\n')
 
-    env.plot_q_values(Q_SARSA, 'SARSA')
+    rl_utils.plot_q_values(Q_SARSA, 'SARSA')
 
     print('\n---************************************** ---- \n')
     if all(pi_SARSA(s) == pi2(s) for s in range(len(env.state_space) - 1)):
@@ -541,15 +195,14 @@ if __name__ == '__main__':
     episodesQ = 60000 # number of episodes
     init_learning_rate = 0.01 # initial learning rate
     startLearningRate = time.time()
-    learning_rate_schedule = meta_train(env.state_space, env.action_space, episodesQ, init_learning_rate, gamma)
+    learning_rate_schedule = model_free_algorithms.meta_train(episodesQ, init_learning_rate, gamma)
     endLearningRate = time.time()
 
     print("Execution time for learning rate schedule: ", endLearningRate - startLearningRate, "seconds \n")
 
     startQL = time.time()
 
-    QQ, piQ, cost = Q_learning_scheduled(env, episodesQ, learning_rate_schedule, gamma)
-
+    QQ, piQ, cost = model_free_algorithms.Q_learning_scheduled(episodesQ, learning_rate_schedule, gamma)
 
     print(learning_rate_schedule)
 
@@ -566,7 +219,7 @@ if __name__ == '__main__':
         print('\nCache cost between s and batch[1]', env.cached_matrix[s, batch[1]])
         print('\n----------------------------------------------------\n')
 
-    env.plot_q_values(QQ, 'Q Learning')
+    rl_utils.plot_q_values(QQ, 'Q Learning')
 
     print('\n---************************************** ---- \n')
     print('\n---************************************** ---- \n')

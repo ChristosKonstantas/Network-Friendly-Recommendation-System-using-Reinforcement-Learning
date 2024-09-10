@@ -1,9 +1,7 @@
-import math
 import numpy as np
 import random
 import itertools
 import matplotlib.pyplot as plt
-import warnings
 
 class NFR_Environment:
     def __init__(self, k, N, num_cached, q, a, u_min):
@@ -192,97 +190,8 @@ class NFR_Environment:
         # Show the plot
         plt.show()
 
-    def plot_value_evolution(self, value_evolution, states, iterations, str_title):
-        # Create meshgrid arrays
-        states_mesh, iterations_mesh = np.meshgrid(states, iterations)
 
-        # Flatten the meshgrid arrays and value_evolution array for scatter plotting
-        states_flat = states_mesh.flatten()
-        iterations_flat = iterations_mesh.flatten()
-        values_flat = value_evolution.flatten()
-
-        # Define the colormap
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=DeprecationWarning)
-            cmap = plt.cm.get_cmap('rainbow', lut=None)
-
-        # Reverse the colormap
-        # Normalize the values for mapping to colormap
-        value_min = np.min(values_flat)
-        value_max = np.max(values_flat)
-        normalized_values = (values_flat - value_min) / (value_max - value_min)
-
-        # Create the figure and axes
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-
-        # Plot the scatter points with color mapping
-        scatter = ax.scatter(states_flat, iterations_flat, values_flat, c=normalized_values, cmap=cmap, edgecolor='black')
-
-        # Set labels and title
-        ax.set_xlabel('States')
-        ax.set_ylabel('Iterations')
-        ax.set_zlabel('Value')
-        ax.set_title(f'Value Evolution in {str_title}')
-        ax.view_init(elev=20, azim=120)
-
-        # Create a scalar mappable for the colorbar
-        sm = plt.cm.ScalarMappable(norm=plt.Normalize(value_min, value_max), cmap=cmap)
-        sm.set_array([])  # An empty array is required
-
-        # Show the colorbar
-        cbar = fig.colorbar(sm, ax=ax)
-        cbar.set_label('Value')
-
-        # Show the plot
-        plt.show()
-
-
-
-
-    def plot_q_values(self, Q, str_title):
-        num_actions_per_bin = int(math.comb(len(self.state_space), len(self.state_space) - 1) / len(self.state_space))
-        # Define the ranges for state and action spaces
-        state_space = range(len(self.state_space))
-        num_actions = len(self.action_space)
-
-        # Calculate the number of complete bins
-        num_complete_bins = num_actions // num_actions_per_bin
-
-        # Calculate the number of actions that fit into complete bins
-        num_actions_to_keep = num_complete_bins * num_actions_per_bin
-
-        # Truncate the Q-values to keep only the actions that fit into complete bins
-        Q_truncated = Q[:, :num_actions_to_keep]
-
-        # Create a grid of state-action pairs
-        X, Y = np.meshgrid(state_space, range(num_complete_bins))
-
-        # Reshape the Q-values to match the grid shape
-        Q_values = Q_truncated.reshape((len(state_space), num_complete_bins, num_actions_per_bin))
-
-        # Increase figure size for better visibility of action labels
-        plt.figure(figsize=(10, 8))
-
-        # Plot the Q-values as a heatmap
-        plt.imshow(Q_values.transpose(1, 0, 2), cmap='tab20b', interpolation='nearest', aspect='auto')
-        plt.colorbar()
-
-        # Set labels and title
-        plt.xlabel('State')
-        plt.ylabel('Action Bin')
-        plt.title(f'Q-Values Colormap (Actions per Bin = {num_actions_per_bin}) for {str_title}')
-
-        # Set the tick labels to integers and update y-axis labels
-        plt.yticks(range(num_complete_bins), range(len(self.action_space))) # range(len(action_space)) converts the action_space range to a list of integers
-
-        # Show the plot
-        plt.show()
-
-
-    def generate_random_seeds(self,num_seeds):
-        random_seeds = random.sample(range(num_seeds * 10), num_seeds)
-        return random_seeds
+    
 
     def has_duplicates(self, lst):
         seen = set()
@@ -292,13 +201,7 @@ class NFR_Environment:
             seen.add(item)
         return False
 
-    def generate_random_policy(self, seed):
-        np.random.seed(seed)
-        random_policy = np.zeros(len(self.state_space) - 1, dtype=int)
-        for s in range(len(self.state_space) - 1):
-            random_policy[s] = np.random.randint(0, len(self.action_space))
-        return random_policy
-
+    
     def calculate_cost_metrics(self, user_sessions):
         """
         Calculates the cost metrics for a given policy
