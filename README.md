@@ -21,6 +21,9 @@ pip install -r requirements.txt
 python3 main.py 
 ```
 
+## About
+This project is designed to be highly scalable and user-friendly, allowing users to easily test both model-based and model-free reinforcement learning algorithms, or add custom utilities for reinforcement learning. The core environment, `NFR_environment` in `utils.py`, serves as a foundation. Users can create and integrate their own custom environments by following the `NFR_environment` structure and use the existing reinforcement learning algorithms for testing and development.
+
 ## Project Description
 This is a project where we see the effectiveness of some Reinforcement Learning methods in order to provide Network Friendly Recommendations (NFR) to a user and reduce the cost of providing non-cached items. 
 
