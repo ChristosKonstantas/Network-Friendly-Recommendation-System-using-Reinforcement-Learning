@@ -2,7 +2,9 @@ import numpy as np
 import math
 import time
 from tqdm import tqdm
+from matplotlib.pyplot import plt
 from utils import NFR_Environment
+
 # This will be done for every now state s and every action
 def transition_probabilities(s, s_next, w_s, q, a):
     if s > k - 1:
@@ -47,24 +49,6 @@ def relevant(w, U, user_now_watches):
     else:
         raise Exception('user_now_watches=k=' + str(user_now_watches),
                         'which is not in the catalog of contents but a terminal state')
-        
-def reward_function(s, s_next, cached_matrix, w_s):
-    # 1-> bad, -1-> good
-    if s <= k - 1:
-        if s_next in w_s:
-            if s_next == s:
-                return 1_000_000  # it should never get here but just in case we have a bug in the code and we get here we
-                # want to penalize it a lot
-            elif s_next == k:  # if the user enters the terminal state from a content state
-                return 1
-            else:
-                if cached_matrix[s, s_next] == 0:
-                    return -1
-                return 1
-        else:
-            return -1
-    else:
-        raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
 
 def value_iteration(env, gamma=1.0, epsilon=1e-10):
     trans_prob_array = transition_probability_matrix(env)
@@ -81,7 +65,7 @@ def value_iteration(env, gamma=1.0, epsilon=1e-10):
                 for s_next in range(len(env.state_space)):
                     # Bellman expectation equation (we use the min operator because we are in the min-cost setting)
                     Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            reward_function(s, s_next, env.cached_matrix, env.action_space[action_index]) + gamma * V[
+                            env.reward_function(s, s_next, action_index) + gamma * V[
                         s_next])
 
         if np.max(np.abs(V - np.min(Q, axis=1))) < epsilon:  # norm-1
@@ -114,7 +98,7 @@ def policy_evaluation(env, pi, trans_prob_array, gamma=1.0, epsilon=1e-10):
             else:
                 for s_next in range(len(env.state_space)):
                     V[s] += trans_prob_array[s, pi(s), s_next] * (
-                            reward_function(s, s_next, env.cached_matrix, env.action_space[pi(s)]) + gamma * prev_V[s_next])
+                            env.reward_function(s, s_next, pi(s)) + gamma * prev_V[s_next])
         if np.max(np.abs(prev_V - V)) < epsilon:
             break
         prev_V = V.copy()
@@ -132,7 +116,7 @@ def policy_improvement(V, env, trans_prob_array, gamma=1.0, epsilon=1e-10):
             for action_index in range(len(env.action_space)):
                 for s_next in range(len(env.state_space)):
                     Q[s][action_index] += trans_prob_array[s, action_index, s_next] * (
-                            reward_function(s, s_next, env.cached_matrix, env.action_space[action_index]) + gamma * V[
+                            env.reward_function(s, s_next,action_index) + gamma * V[
                         s_next])
     new_pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]
 
@@ -203,8 +187,8 @@ def Q_learning(env, num_episodes, learning_rate_schedule, discount_factor):
                 action = action_space_s_ind[np.argmin(Q_values)]  # Select action with min Q-value
 
             # Perform the action and observe the next state and reward
-            s_next, recom = env.step(action)  # Determine next state based on current state and action
-            reward = reward_function(s, s_next, env.cached_matrix, env.action_space[action])  # Calculate the reward
+            s_next, _ = env.step(action)  # Determine next state based on current state and action
+            reward = env.reward_function(s, s_next, action)  # Calculate the reward
 
 
             # Update Q-value using the Q-learning update rule
@@ -270,7 +254,7 @@ def Q_learning_test(state_space, action_space, num_episodes, learning_rate, disc
             # Update Q-value using the Q-learning update rule
             # s_next = np.random.choice(state_space, p=trans_prob_array[s][action][:]) # Oracle transition
             Q[s, action] += learning_rate * (
-                    reward_function(s, s_next, env.cached_matrix, action_space[action]) + discount_factor * np.min(
+                    env.reward_function(s, s_next, action) + discount_factor * np.min(
                 Q[s_next, :]) - Q[s, action])
 
             s = s_next
@@ -395,7 +379,7 @@ def SARSA(env, num_episodes, learning_rate, discount_factor):
 
             # Update Q-value using the Q-learning update rule
 
-            target_estimate = reward_function(s, s_next, env.cached_matrix, env.action_space[action]) + discount_factor * Q[
+            target_estimate = env.reward_function(s, s_next, action) + discount_factor * Q[
                 s_next, action_next]
             Q[s, action] += learning_rate * (target_estimate - Q[s, action])
 

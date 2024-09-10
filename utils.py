@@ -45,7 +45,25 @@ class NFR_Environment:
                 matrix[j][i] = m  # Assign the same value symmetrically
 
         return matrix
-
+    
+    def reward_function(self, s, s_next, action_index):
+        w_s = self.action_space[action_index]
+        # 1-> bad, -1-> good
+        if s <= self.k - 1:
+            if s_next in w_s:
+                if s_next == s:
+                    return 1_000_000  # it should never get here
+                elif s_next == self.k:  # if the user enters the terminal state from a content state
+                    return 1
+                else:
+                    if self.cached_matrix[s, s_next] == 0:
+                        return -1
+                    return 1
+            else:
+                return -1
+        else:
+            raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
+        
     @staticmethod
     def print_matrix(matrix):
         for row in matrix:
