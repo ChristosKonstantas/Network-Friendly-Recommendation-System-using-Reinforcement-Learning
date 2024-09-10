@@ -64,6 +64,47 @@ class NFR_Environment:
         else:
             raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
         
+    # This will be done for every now state s and every action
+    def transition_probabilities(self, s, s_next, action_index):
+        w_s = self.action_space[action_index]
+        if s > self.k - 1:
+            raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
+        else:
+            if s_next == s:
+                return 0
+            elif s_next == self.k:
+                return self.q
+            else:
+                if self._relevant(w_s, s):
+                    if s_next in w_s:
+                        return (1 - self.q) * (self.a / self.N + (1 - self.a) / (
+                                self.k - 1))  # we use k-1 because we exclude the item for the probability (s_next == s)
+                    else:
+                        return (1 - self.q) * (1 - self.a) / (
+                                self.k - 1)  # we use k-1 because we exclude the item for the probability (s_next == s)
+                else:
+                    return (1 - self.q) * (
+                            1 / (self.k - 1))  # we use k-1 because we exclude the item for the probability (s_next == s)    
+                    
+    def _relevant(self,w, s):
+        if s < self.k:
+            return all(self.U[item, s] > self.u_min for item in w)
+        else:
+            raise Exception('user_now_watches=k=' + str(s),
+                            'which is not in the catalog of contents but a terminal state')
+            
+    def transition_probability_matrix(self):
+        trans_prob_array = np.zeros((len(self.state_space) - 1, len(self.action_space), len(self.state_space)))
+        print('shape is', trans_prob_array.shape)
+        for s in range(len(self.state_space) - 1):
+            action_space_s = [i for i in self.action_space if s not in i]
+            action_space_s_ind = [list(self.combinations_dict.keys())[list(self.combinations_dict.values()).index(action)] for action
+                                in action_space_s]
+            for action_index in action_space_s_ind:
+                for s_next in range(len(self.state_space)):
+                    trans_prob_array[s, action_index, s_next] = self.transition_probabilities(s, s_next,action_index)
+        return trans_prob_array
+    
     @staticmethod
     def print_matrix(matrix):
         for row in matrix:

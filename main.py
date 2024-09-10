@@ -2,56 +2,13 @@ import numpy as np
 import math
 import time
 from tqdm import tqdm
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
 from utils import NFR_Environment
-
-# This will be done for every now state s and every action
-def transition_probabilities(s, s_next, w_s, q, a):
-    if s > k - 1:
-        raise Exception('s=k=' + str(s), 'which is not in the catalog of contents but a terminal state')
-    else:
-        if s_next == s:
-            return 0
-        elif s_next == k:
-            return q
-        else:
-            if relevant(w_s, U, s):
-                if s_next in w_s:
-                    return (1 - q) * (a / N + (1 - a) / (
-                            k - 1))  # we use k-1 because we exclude the item for the probability (s_next == s)
-                else:
-                    return (1 - q) * (1 - a) / (
-                            k - 1)  # we use k-1 because we exclude the item for the probability (s_next == s)
-            else:
-                return (1 - q) * (
-                        1 / (k - 1))  # we use k-1 because we exclude the item for the probability (s_next == s)
-
 
 # Serves for reducing expected cost due to non-cached contents, but it is not so good for ensuring user satisfaction
 # Although the transition probabilities give a little greater probability that user clicks one of the recommendations
-
-def transition_probability_matrix(env):
-    trans_prob_array = np.zeros((len(env.state_space) - 1, len(env.action_space), len(env.state_space)))
-    print('shape is', trans_prob_array.shape)
-    for s in range(len(env.state_space) - 1):
-        action_space_s = [i for i in env.action_space if s not in i]
-        action_space_s_ind = [list(combinations_dict.keys())[list(combinations_dict.values()).index(action)] for action
-                            in action_space_s]
-        for action_index in action_space_s_ind:
-            for s_next in range(len(env.state_space)):
-                trans_prob_array[s, action_index, s_next] = transition_probabilities(s, s_next,
-                                                                                    env.action_space[action_index], q, a)
-    return trans_prob_array
-
-def relevant(w, U, user_now_watches):
-    if user_now_watches < k:
-        return all(U[item, user_now_watches] > u_min for item in w)
-    else:
-        raise Exception('user_now_watches=k=' + str(user_now_watches),
-                        'which is not in the catalog of contents but a terminal state')
-
 def value_iteration(env, gamma=1.0, epsilon=1e-10):
-    trans_prob_array = transition_probability_matrix(env)
+    trans_prob_array = env.transition_probability_matrix()
     t = 0
     V = (np.zeros(len(env.state_space), dtype=np.float64))
     value_evolution = np.zeros((0, len(env.state_space)),
@@ -154,7 +111,7 @@ def policy_iteration(env, trans_prob_array, gamma=1.0, epsilon=1e-10):
     return V, pi, Q, value_evolution
 
 
-def Q_learning(env, num_episodes, learning_rate_schedule, discount_factor):
+def Q_learning_scheduled(env, num_episodes, learning_rate_schedule, discount_factor):
     # Initialize the Q-table
     num_states = len(env.state_space)
     num_actions = len(env.action_space)
@@ -218,7 +175,7 @@ def Q_learning(env, num_episodes, learning_rate_schedule, discount_factor):
     return Q, pi, cost_per_round
 
 
-def Q_learning_test(state_space, action_space, num_episodes, learning_rate, discount_factor):
+def Q_learning(state_space, action_space, num_episodes, learning_rate, discount_factor):
     # Initialize the Q-table
     num_states = len(state_space)
     num_actions = len(action_space)
@@ -284,11 +241,11 @@ def meta_train(state_space, action_space, num_episodes, initial_learning_rate, d
     # Perform meta-training
     for episode in tqdm(range(num_episodes), desc= 'meta train is running '):
         # Call the Q-learning function with the current learning rate
-        Q, _ = Q_learning_test(state_space, action_space, 1, learning_rate_schedule[episode], discount_factor)
+        Q, _ = Q_learning(state_space, action_space, 1, learning_rate_schedule[episode], discount_factor)
 
         # Determine the performance improvement based on Q-values or other metrics
         if episode > 0:
-            prev_Q, _ = Q_learning_test(state_space, action_space, 1, learning_rate_schedule[episode - 1],
+            prev_Q, _ = Q_learning(state_space, action_space, 1, learning_rate_schedule[episode - 1],
                                         discount_factor)
             performance_improvement = np.mean(np.abs(Q - prev_Q))
             performance_improvements = np.append(performance_improvements, performance_improvement)
@@ -442,40 +399,35 @@ if __name__ == '__main__':
     # {0: [0, 1], 1: [0, 2], 2: [0, 3], 3: [1, 2], 4: [1, 3], 5: [2, 3]}
 
     combinations_dict = env.dict_of_combinations()
-
     print(combinations_dict)
-    # print("Number of all possible distinct batches of size N:", len(distinct_combinations), 'and
-    # the number of total combinations is' , len(combinations) )
-    # print("\nDistinct Combinations Dictionary:")
-    # for comb, idx in combinations_dict.items():
-    #    print(comb, ":", idx)
 
     #  -- Construction of the Markov Decision Process (MDP) -- #
     print('The state space has length of', len(env.state_space))
     print("\nState Space:", env.state_space)
     print("\nAction Space:", env.action_space)
+    
     '''
-    A = transition_probabilities(9, 0, [0, 1], q, a)
+    A = env.transition_probabilities(9, 0, [0, 1], q, a)
     print(A)
-    B = transition_probabilities(9, 1, [0, 1], q, a)
+    B = env.transition_probabilities(9, 1, [0, 1], q, a)
     print(B)
-    C = transition_probabilities(9, 2, [0, 1], q, a)
+    C = env.transition_probabilities(9, 2, [0, 1], q, a)
     print(C)
-    D = transition_probabilities(9, 3, [0, 1], q, a)
+    D = env.transition_probabilities(9, 3, [0, 1], q, a)
     print(D)
-    E = transition_probabilities(9, 4, [0, 1], q, a)
+    E = env.transition_probabilities(9, 4, [0, 1], q, a)
     print(E)
-    F = transition_probabilities(9, 5, [0, 1], q, a)
+    F = env.transition_probabilities(9, 5, [0, 1], q, a)
     print(F)
-    G = transition_probabilities(9, 6, [0, 1], q, a)
+    G = env.transition_probabilities(9, 6, [0, 1], q, a)
     print(G)
-    H = transition_probabilities(9, 7, [0, 1], q, a)
+    H = env.transition_probabilities(9, 7, [0, 1], q, a)
     print(H)
-    I = transition_probabilities(9, 8, [0, 1], q, a)
+    I = env.transition_probabilities(9, 8, [0, 1], q, a)
     print(I)
-    J = transition_probabilities(9, 9, [0, 1], q, a)
+    J = env.transition_probabilities(9, 9, [0, 1], q, a)
     print(J)
-    K = transition_probabilities(9, 10, [0, 1], q, a)
+    K = env.transition_probabilities(9, 10, [0, 1], q, a)
     print(K)
 
     print('Here', A + B + C + D + E + F + G + H + I + J + K)  # should be equal to 1
@@ -524,7 +476,7 @@ if __name__ == '__main__':
 
     # (2) ---------- Execute the policy iteration algorithm -------------- #
 
-    trans_prob_array = transition_probability_matrix(env)
+    trans_prob_array = env.transition_probability_matrix()
     startPI = time.time()
     V2, pi2, Q2, valEvol = policy_iteration(env, trans_prob_array, 0.8, 1e-5)
     states = np.arange(len(env.state_space))
@@ -596,7 +548,7 @@ if __name__ == '__main__':
 
     startQL = time.time()
 
-    QQ, piQ, cost = Q_learning(env, episodesQ, learning_rate_schedule, gamma)
+    QQ, piQ, cost = Q_learning_scheduled(env, episodesQ, learning_rate_schedule, gamma)
 
 
     print(learning_rate_schedule)
