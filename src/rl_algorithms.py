@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import math
 import warnings
 import random
+from typing import Callable, Tuple, List
 
 class ModelBased:
     def __init__(self, env):
@@ -11,7 +12,20 @@ class ModelBased:
         self.trans_prob_array = env.transition_probability_matrix()
         self.value_evolution = None  # Placeholder for storing the evolution of the value function
 
-    def value_iteration(self, gamma, epsilon):
+    def value_iteration(self, gamma, epsilon)-> Tuple[np.ndarray, Callable[[int], int], np.ndarray, np.ndarray]:
+        """
+        Perform value iteration to compute the optimal value function and policy.
+
+        Parameters:
+        - gamma (float): Discount factor.
+        - epsilon (float): Convergence threshold.
+
+        Returns:
+        - V (np.ndarray): Optimal state value function.
+        - pi (function): Optimal policy function, which takes a state and returns the optimal action.
+        - Q (np.ndarray): State-action value function (Q-values) for each state and action.
+        - value_evolution (np.ndarray): Evolution of the value function across iterations.
+        """
         t = 0
         V = (np.zeros(len(self.env.state_space), dtype=np.float64))
         value_evolution = np.zeros((0, len(self.env.state_space)),
@@ -30,21 +44,32 @@ class ModelBased:
 
             if np.max(np.abs(V - np.min(Q, axis=1))) < epsilon:  # norm-1
                 break
-
-            V = np.min(Q,
-                    axis=1)  # Bellman optimality equation to minimize Q over all actions and take the optimal state values
-            value_evolution = np.vstack(
-                (value_evolution, V))  # Append the current state Value function to value_evolution to plot it
+            # Bellman optimality equation to minimize Q over all actions and take the optimal state values
+            V = np.min(Q, axis=1)  
+            # Append the current state Value function to value_evolution to plot it
+            value_evolution = np.vstack((value_evolution, V))  
 
             t += 1  # Increment the number of iterations
-
-        pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[
-            s]  # Return the optimal policy given the optimal value function
+        # Return the optimal policy given the optimal value function
+        pi = lambda s: {s: a for s, a in enumerate(np.argmin(Q, axis=1))}[s]  
         print('Converged after %d iterations' % t)
 
         return V, pi, Q, value_evolution
     
-    def policy_iteration(self, gamma, epsilon):
+    def policy_iteration(self, gamma: float, epsilon: float) -> Tuple[np.ndarray, Callable[[int], int], np.ndarray, np.ndarray]:
+        """
+        Perform policy iteration to compute the optimal value function and policy.
+
+        Parameters:
+        - gamma (float): Discount factor.
+        - epsilon (float): Convergence threshold.
+
+        Returns:
+        - V (np.ndarray): Optimal state value function. Shape: (num_states,)
+        - pi (Callable[[int], int]): Optimal policy function, which takes a state (int) and returns the optimal action (int).
+        - Q (np.ndarray): State-action value function (Q-values). Shape: (num_states, num_actions)
+        - value_evolution (np.ndarray): Evolution of the value function across iterations. Shape: (num_iterations, num_states)
+        """
         t = 0
         value_evolution = np.zeros((0, len(self.env.state_space)),
                                 dtype=np.float64)  # 2D array to store the evolution of the Value function
@@ -71,7 +96,18 @@ class ModelBased:
         print('converged after %d iterations' % t)  # keep track of the number of (outer) iterations to converge
         return V, pi, Q, value_evolution
 
-    def policy_evaluation(self, pi, gamma, epsilon):
+    def policy_evaluation(self, pi: Callable[[int], int], gamma: float, epsilon: float) -> np.ndarray:
+        """
+        Evaluate a given policy by computing the value function using iterative policy evaluation.
+
+        Parameters:
+        - pi (Callable[[int], int]): The policy function, which takes a state (int) and returns the action (int) to be taken.
+        - gamma (float): Discount factor.
+        - epsilon (float): Convergence threshold.
+
+        Returns:
+        - V (np.ndarray): The computed value function for the given policy. Shape: (num_states,)
+        """
         t = 0
         prev_V = np.zeros(len(self.env.state_space))
         # Repeat all value sweeps until convergence
@@ -92,8 +128,18 @@ class ModelBased:
 
             return V
 
+    def policy_improvement(self, V: np.ndarray, gamma: float) -> Tuple[Callable[[int], int], np.ndarray]:
+        """
+        Improve the policy based on the given value function by computing the Q-values and deriving the new policy.
 
-    def policy_improvement(self, V, gamma):
+        Parameters:
+        - V (np.ndarray): The current value function. Shape: (num_states,)
+        - gamma (float): Discount factor.
+
+        Returns:
+        - new_pi (Callable[[int], int]): The improved policy function, which takes a state (int) and returns the optimal action (int).
+        - Q (np.ndarray): The computed state-action value function (Q-values). Shape: (num_states, num_actions)
+        """
         Q = np.zeros((len(self.env.state_space), len(self.env.action_space)), dtype=np.float64)
 
         for s in range(len(self.env.state_space)):
@@ -108,16 +154,24 @@ class ModelBased:
 
         return new_pi, Q
 
-    
-
 
 class ModelFree:
     def __init__(self, env):
         self.env = env
-        self.Q = None  # Placeholder for Q-table
-        self.cached_costs = None  # Placeholder for cached costs
         
-    def SARSA(self, num_episodes, learning_rate, discount_factor):
+    def SARSA(self, num_episodes: int, learning_rate: float, discount_factor: float) -> Tuple[np.ndarray, Callable[[int], int]]:
+        """
+        Perform SARSA (State-Action-Reward-State-Action) algorithm to learn the optimal policy and Q-values.
+
+        Parameters:
+        - num_episodes (int): Number of episodes to run the SARSA algorithm.
+        - learning_rate (float): The learning rate for updating Q-values.
+        - discount_factor (float): The discount factor for future rewards.
+
+        Returns:
+        - Q (np.ndarray): The learned state-action value function (Q-values). Shape: (num_states, num_actions)
+        - pi (Callable[[int], int]): The optimal policy function, which takes a state (int) and returns the optimal action (int).
+        """        
         num_states = len(self.env.state_space)
         num_actions = len(self.env.action_space)
         Q = np.zeros((num_states, num_actions))
@@ -180,7 +234,19 @@ class ModelFree:
 
         return Q, pi
         
-    def Q_learning_scheduled(self, num_episodes, learning_rate_schedule, gamma):
+    def Q_learning_scheduled(self, num_episodes: int, learning_rate_schedule: List[float], gamma: float) -> Tuple[np.ndarray, Callable[[int], int]]:
+        """
+        Perform Q-learning with a scheduled learning rate to learn the optimal policy and Q-values.
+
+        Parameters:
+        - num_episodes (int): Number of episodes to run the Q-learning algorithm.
+        - learning_rate_schedule (List[float]): List of learning rates for each episode.
+        - gamma (float): Discount factor for future rewards.
+
+        Returns:
+        - Q (np.ndarray): The learned state-action value function (Q-values). Shape: (num_states, num_actions)
+        - pi (Callable[[int], int]): The optimal policy function, which takes a state (int) and returns the optimal action (int).
+        """
         
         # Initialize the Q-table
         num_states = len(self.env.state_space)
@@ -244,7 +310,19 @@ class ModelFree:
 
         return Q, pi, cost_per_round   
 
-    def Q_learning(self, num_episodes, learning_rate, gamma):
+    def Q_learning(self, num_episodes: int, learning_rate: float, gamma: float) -> Tuple[np.ndarray, Callable[[int], int]]:
+        """
+        Perform Q-learning to learn the optimal policy and Q-values.
+
+        Parameters:
+        - num_episodes (int): Number of episodes to run the Q-learning algorithm.
+        - learning_rate (float): The learning rate for updating Q-values.
+        - gamma (float): Discount factor for future rewards.
+
+        Returns:
+        - Q (np.ndarray): The learned state-action value function (Q-values). Shape: (num_states, num_actions)
+        - pi (Callable[[int], int]): The optimal policy function, which takes a state (int) and returns the optimal action (int).
+        """
         # Initialize the Q-table
         num_states = len(self.env.state_space)
         num_actions = len(self.env.action_space)
@@ -289,7 +367,19 @@ class ModelFree:
 
         return Q, pi
     
-    def meta_train(self, num_episodes, initial_learning_rate, gamma):
+    def meta_train(self, num_episodes: int, initial_learning_rate: float, gamma: float) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Perform meta-training to optimize the learning rate schedule for Q-learning.
+
+        Parameters:
+        - num_episodes (int): Number of episodes for meta-training.
+        - initial_learning_rate (float): Initial learning rate for Q-learning.
+        - gamma (float): Discount factor for Q-learning.
+
+        Returns:
+        - learning_rate_schedule (np.ndarray): The learning rate schedule for each episode. Shape: (num_episodes,)
+        - performance_improvements (np.ndarray): Performance improvements measured as mean absolute differences in Q-values. Shape: (num_episodes,)
+        """
         learning_rate_schedule = np.ones(num_episodes) * initial_learning_rate
         learning_rate = initial_learning_rate
         performance_improvements = np.zeros(num_episodes)
@@ -342,18 +432,22 @@ class ModelFree:
 
         return learning_rate_schedule
     
-    def pick_minQ_action(self, state, actions, Q):
-        Q_values = Q[state][actions]  # Filter Q-values for legal actions
-        min_action = actions[np.argmin(Q_values)]  # Select action with min Q-value
-
-        return min_action
-    
     
 class RL_Utils:
     def __init__(self, env):
         self.env = env
         
-    def plot_q_values(self, Q, str_title):
+    def plot_q_values(self, Q: np.ndarray, str_title: str) -> None:
+        """
+        Plot the Q-values as a heatmap for visualization.
+
+        Parameters:
+        - Q (np.ndarray): The Q-values array. Shape: (num_states, num_actions)
+        - str_title (str): The title for the plot.
+
+        Returns:
+        - None: This function displays a plot and does not return any value.
+        """
         num_actions_per_bin = int(math.comb(len(self.env.state_space), len(self.env.state_space) - 1) / len(self.env.state_space))
         # Define the ranges for state and action spaces
         state_space = range(len(self.env.state_space))
@@ -374,26 +468,32 @@ class RL_Utils:
         # Reshape the Q-values to match the grid shape
         Q_values = Q_truncated.reshape((len(state_space), num_complete_bins, num_actions_per_bin))
 
-        # Increase figure size for better visibility of action labels
         plt.figure(figsize=(10, 8))
 
         # Plot the Q-values as a heatmap
         plt.imshow(Q_values.transpose(1, 0, 2), cmap='tab20b', interpolation='nearest', aspect='auto')
         plt.colorbar()
-
-        # Set labels and title
         plt.xlabel('State')
         plt.ylabel('Action Bin')
         plt.title(f'Q-Values Colormap (Actions per Bin = {num_actions_per_bin}) for {str_title}')
 
-        # Set the tick labels to integers and update y-axis labels
         plt.yticks(range(num_complete_bins), range(len(self.env.action_space))) # range(len(action_space)) converts the action_space range to a list of integers
-
-        # Show the plot
         plt.show()
 
     @staticmethod
-    def plot_value_evolution(value_evolution, states, iterations, str_title):
+    def plot_value_evolution(value_evolution: np.ndarray, states: np.ndarray, iterations: np.ndarray, str_title: str) -> None:
+        """
+        Plot the evolution of values over states and iterations as a 3D scatter plot.
+
+        Parameters:
+        - value_evolution (np.ndarray): A 2D numpy array of values over states and iterations. Shape: (num_iterations, num_states)
+        - states (np.ndarray): An array representing the state indices. Shape: (num_states,)
+        - iterations (np.ndarray): An array representing the iteration indices. Shape: (num_iterations,)
+        - str_title (str): The title for the plot.
+
+        Returns:
+        - None: This function displays a plot and does not return any value.
+        """
         # Create meshgrid arrays
         states_mesh, iterations_mesh = np.meshgrid(states, iterations)
 
@@ -407,7 +507,6 @@ class RL_Utils:
             warnings.simplefilter('ignore', category=DeprecationWarning)
             cmap = plt.cm.get_cmap('rainbow', lut=None)
 
-        # Reverse the colormap
         # Normalize the values for mapping to colormap
         value_min = np.min(values_flat)
         value_max = np.max(values_flat)
@@ -439,15 +538,37 @@ class RL_Utils:
         plt.show()
         
     @staticmethod
-    def generate_random_seeds(self,num_seeds):
-        random_seeds = random.sample(range(num_seeds * 10), num_seeds)
+    def generate_random_seeds(n: int, num_seeds: int) -> List[int]:
+        """
+        Generate a list of random seeds.
+
+        Parameters:
+        - n (int): The multiplier for the range of possible seed values.
+        - num_seeds (int): The number of unique random seeds to generate.
+
+        Returns:
+        - List[int]: A list of unique random seeds.
+        """
+        random_seeds = random.sample(range(num_seeds * n), num_seeds)
         return random_seeds
     
-    @staticmethod
-    def generate_random_policy(self, seed):
-        np.random.seed(seed)
-        random_policy = np.zeros(len(self.state_space) - 1, dtype=int)
-        for s in range(len(self.state_space) - 1):
-            random_policy[s] = np.random.randint(0, len(self.action_space))
-        return random_policy
+    def generate_random_policy(self, seed: int) -> np.ndarray:
+        """
+        Generate a random policy.
 
+        Parameters:
+        - seed (int): The seed for the random number generator to ensure reproducibility.
+
+        Returns:
+        - np.ndarray: An array representing the random policy.
+        """
+        np.random.seed(seed)
+        num_states = len(self.env.state_space) - 1
+        num_actions = len(self.env.action_space)
+        
+        # Initialize a policy array with random actions for each state
+        random_policy = np.zeros(num_states, dtype=int)
+        for s in range(num_states):
+            random_policy[s] = np.random.randint(0, num_actions)
+        
+        return random_policy

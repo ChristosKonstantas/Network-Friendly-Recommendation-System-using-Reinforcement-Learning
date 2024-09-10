@@ -60,42 +60,15 @@ if __name__ == '__main__':
     print('The state space has length of', len(env.state_space))
     print("\nState Space:", env.state_space)
     print("\nAction Space:", env.action_space)
-    
-    '''
-    A = env.transition_probabilities(9, 0, [0, 1], q, a)
-    print(A)
-    B = env.transition_probabilities(9, 1, [0, 1], q, a)
-    print(B)
-    C = env.transition_probabilities(9, 2, [0, 1], q, a)
-    print(C)
-    D = env.transition_probabilities(9, 3, [0, 1], q, a)
-    print(D)
-    E = env.transition_probabilities(9, 4, [0, 1], q, a)
-    print(E)
-    F = env.transition_probabilities(9, 5, [0, 1], q, a)
-    print(F)
-    G = env.transition_probabilities(9, 6, [0, 1], q, a)
-    print(G)
-    H = env.transition_probabilities(9, 7, [0, 1], q, a)
-    print(H)
-    I = env.transition_probabilities(9, 8, [0, 1], q, a)
-    print(I)
-    J = env.transition_probabilities(9, 9, [0, 1], q, a)
-    print(J)
-    K = env.transition_probabilities(9, 10, [0, 1], q, a)
-    print(K)
-
-    print('Here', A + B + C + D + E + F + G + H + I + J + K)  # should be equal to 1
-    '''
 
 
     
     rl_utils = RL_Utils(env)
-    ############ BENCHMARKING ############
+    #---------- BENCHMARKING --------------#
     model_based_algorithms = ModelBased(env)
 
 
-    # *** (1) and (2) are model based methods *** #
+    # *** (1) and (2) are model based methods ***
     # (1) ---------- Execute the value iteration algorithm -------------- #
     
     
@@ -133,7 +106,6 @@ if __name__ == '__main__':
     print('\n---************************************** ---- \n')
 
     # (2) ---------- Execute the policy iteration algorithm -------------- #
-    trans_prob_array = env.transition_probability_matrix()
     startPI = time.time()
     V2, pi2, Q2, valEvol = model_based_algorithms.policy_iteration(gamma=1.0, epsilon=1e-10)
     states = np.arange(len(env.state_space))
