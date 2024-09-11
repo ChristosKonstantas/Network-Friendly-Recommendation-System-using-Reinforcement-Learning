@@ -23,6 +23,7 @@ python3 main.py
 
 ## About
 This project is designed to be highly scalable and user-friendly, allowing users to easily test both model-based and model-free reinforcement learning algorithms, or add custom utilities for reinforcement learning. The core environment, `NFR_environment` in `utils.py`, serves as a foundation. Users can create and integrate their own custom environments by following the `NFR_environment` structure and use the existing reinforcement learning algorithms for testing and development.
+**Notice**: The RL algorithms are modified to tackle minimization problems. Instead of obtaining the maximum Q-value when using epsilon-greedy for exploitation, we now aim to get the minimum Q-value. Therefore, if you create your own custom environment, you must adjust your environment’s reward function accordingly.
 
 ## Project Description
 This is a project where we see the effectiveness of some Reinforcement Learning methods in order to provide Network Friendly Recommendations (NFR) to a user and reduce the cost of providing non-cached items. 
