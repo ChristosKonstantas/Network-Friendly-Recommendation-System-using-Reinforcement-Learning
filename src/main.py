@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 from utils import NFR_Environment    
 from rl_algorithms import ModelBased, ModelFree, RL_Utils
 
-
 if __name__ == '__main__':
     start = time.time()
     # Global variables
-    # random.seed(42)
     u_min = 0.8
     q = 0.2
     a = 0.9  # for 1-q *and* ->relevance<-, user picks one of the N recommended contents with equal probability
@@ -61,7 +59,6 @@ if __name__ == '__main__':
     print("\nState Space:", env.state_space)
     print("\nAction Space:", env.action_space)
 
-
     
     rl_utils = RL_Utils(env)
     #---------- BENCHMARKING --------------#
@@ -70,7 +67,7 @@ if __name__ == '__main__':
 
     # *** (1) and (2) are model based methods ***
     # (1) ---------- Execute the value iteration algorithm -------------- #
-    
+   
     
     startVI = time.time()
     V, pi, Q, value_evolution = model_based_algorithms.value_iteration(gamma=1.0, epsilon=1e-10)
@@ -131,7 +128,6 @@ if __name__ == '__main__':
     print('\n---************************************** ---- \n')
     print('\n---************************************** ---- \n')
 
-
     pi_PolicyIteration = pi2
 
     # *** (3) and (4) are model free methods *** #
@@ -159,7 +155,6 @@ if __name__ == '__main__':
     print('\n---************************************** ---- \n')
     if all(pi_SARSA(s) == pi2(s) for s in range(len(env.state_space) - 1)):
         print('The policies are the same')
-
 
 
     # (4) ---------- Execute the Q-learning algorithm -------------- #
